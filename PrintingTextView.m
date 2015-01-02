@@ -1,6 +1,7 @@
 /*
-     File: MultiplePageView.h
- Abstract: View which holds all the pages together in the multiple-page case.
+     File: PrintingTextView.m
+ Abstract: Very simple subclass of NSTextView that allows dynamic rewrapping/resizing to accomodate user options in the print panel when printing. 
+ This view is used only for printing of "wrap-to-window" views, since "wrap-to-page" views have fixed wrapping and size already.
   Version: 1.7.1
  
  Disclaimer: IMPORTANT:  This Apple software is supplied to you by Apple
@@ -46,28 +47,31 @@
  */
 
 #import <Cocoa/Cocoa.h>
+#import "PrintingTextView.h"
+#import "PrintPanelAccessoryController.h"
+#import "TextEditMisc.h"
 
-@interface MultiplePageView : NSView {
-    NSPrintInfo *printInfo;
-    NSColor *lineColor;
-    NSColor *marginColor;
-    NSUInteger numPages;
-    NSTextLayoutOrientation layoutOrientation;
+
+@implementation PrintingTextView
+
+@synthesize printPanelAccessoryController, originalSize;
+
+/* Override of knowsPageRange: checks printing parameters against the last invocation, and if not the same, resizes the view and relays out the text.  On first invocation, the saved size will be 0,0, which will cause the text to be laid out.
+*/
+- (BOOL)knowsPageRange:(NSRangePointer)range {
+    NSSize documentSizeInPage = documentSizeForPrintInfo([self.printPanelAccessoryController representedObject]);
+    BOOL wrappingToFit = self.printPanelAccessoryController.wrappingToFit;
+    
+    if (!NSEqualSizes(previousValueOfDocumentSizeInPage, documentSizeInPage) || (previousValueOfWrappingToFit != wrappingToFit)) {
+        previousValueOfDocumentSizeInPage = documentSizeInPage;
+        previousValueOfWrappingToFit = wrappingToFit;
+        
+        NSSize size = wrappingToFit ? documentSizeInPage : self.originalSize;
+        [self setFrame:NSMakeRect(0.0, 0.0, size.width, size.height)];
+        [[[self textContainer] layoutManager] setDefaultAttachmentScaling:wrappingToFit ? NSImageScaleProportionallyDown : NSImageScaleNone];
+        [self textEditDoForegroundLayoutToCharacterIndex:NSIntegerMax];		// Make sure the whole document is laid out
+    }
+    return [super knowsPageRange:range];
 }
-
-- (void)setPrintInfo:(NSPrintInfo *)anObject;
-- (NSPrintInfo *)printInfo;
-- (CGFloat)pageSeparatorHeight;
-- (NSSize)documentSizeInPage;	/* Returns the area where the document can draw */
-- (NSRect)documentRectForPageNumber:(NSUInteger)pageNumber;	/* First page is page 0 */
-- (NSRect)pageRectForPageNumber:(NSUInteger)pageNumber;	/* First page is page 0 */
-- (void)setNumberOfPages:(NSUInteger)num;
-- (NSUInteger)numberOfPages;
-- (void)setLineColor:(NSColor *)color;
-- (NSColor *)lineColor;
-- (void)setMarginColor:(NSColor *)color;
-- (NSColor *)marginColor;
-- (void)setLayoutOrientation:(NSTextLayoutOrientation)orientation;
-- (NSTextLayoutOrientation)layoutOrientation;
 
 @end

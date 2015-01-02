@@ -1,46 +1,52 @@
 /*
-        MultiplePageView.m
-        Copyright (c) 1995-2009 by Apple Computer, Inc., all rights reserved.
-        Author: Ali Ozer
-
-        View which holds all the pages together in the multiple-page case
-*/
-/*
- IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. ("Apple") in
- consideration of your agreement to the following terms, and your use, installation, 
- modification or redistribution of this Apple software constitutes acceptance of these 
- terms.  If you do not agree with these terms, please do not use, install, modify or 
+     File: MultiplePageView.m
+ Abstract: View which holds all the pages together in the multiple-page case.
+  Version: 1.7.1
+ 
+ Disclaimer: IMPORTANT:  This Apple software is supplied to you by Apple
+ Inc. ("Apple") in consideration of your agreement to the following
+ terms, and your use, installation, modification or redistribution of
+ this Apple software constitutes acceptance of these terms.  If you do
+ not agree with these terms, please do not use, install, modify or
  redistribute this Apple software.
  
- In consideration of your agreement to abide by the following terms, and subject to these 
- terms, Apple grants you a personal, non-exclusive license, under Apple's copyrights in 
- this original Apple software (the "Apple Software"), to use, reproduce, modify and 
- redistribute the Apple Software, with or without modifications, in source and/or binary 
- forms; provided that if you redistribute the Apple Software in its entirety and without 
- modifications, you must retain this notice and the following text and disclaimers in all 
- such redistributions of the Apple Software.  Neither the name, trademarks, service marks 
- or logos of Apple Computer, Inc. may be used to endorse or promote products derived from 
- the Apple Software without specific prior written permission from Apple. Except as expressly
- stated in this notice, no other rights or licenses, express or implied, are granted by Apple
- herein, including but not limited to any patent rights that may be infringed by your 
- derivative works or by other works in which the Apple Software may be incorporated.
+ In consideration of your agreement to abide by the following terms, and
+ subject to these terms, Apple grants you a personal, non-exclusive
+ license, under Apple's copyrights in this original Apple software (the
+ "Apple Software"), to use, reproduce, modify and redistribute the Apple
+ Software, with or without modifications, in source and/or binary forms;
+ provided that if you redistribute the Apple Software in its entirety and
+ without modifications, you must retain this notice and the following
+ text and disclaimers in all such redistributions of the Apple Software.
+ Neither the name, trademarks, service marks or logos of Apple Inc. may
+ be used to endorse or promote products derived from the Apple Software
+ without specific prior written permission from Apple.  Except as
+ expressly stated in this notice, no other rights or licenses, express or
+ implied, are granted by Apple herein, including but not limited to any
+ patent rights that may be infringed by your derivative works or by other
+ works in which the Apple Software may be incorporated.
  
- The Apple Software is provided by Apple on an "AS IS" basis.  APPLE MAKES NO WARRANTIES, 
- EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, 
- MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS 
- USE AND OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+ The Apple Software is provided by Apple on an "AS IS" basis.  APPLE
+ MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+ THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND FITNESS
+ FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS USE AND
+ OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
  
- IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL OR CONSEQUENTIAL 
- DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS 
- OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE, 
- REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE, HOWEVER CAUSED AND 
- WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING NEGLIGENCE), STRICT LIABILITY OR 
- OTHERWISE, EVEN IF APPLE HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL
+ OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE, REPRODUCTION,
+ MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE, HOWEVER CAUSED
+ AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING NEGLIGENCE),
+ STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN ADVISED OF THE
+ POSSIBILITY OF SUCH DAMAGE.
+ 
+ Copyright (C) 2012 Apple Inc. All Rights Reserved.
+ 
+ */
 
 #import <Cocoa/Cocoa.h>
 #import "MultiplePageView.h"
-#import "Document.h"	// For defaultTextPadding();
 #import "TextEditMisc.h"
 
 @implementation MultiplePageView
@@ -68,8 +74,13 @@
     if ([self superview]) {
         NSRect rect = NSZeroRect;
         rect.size = [printInfo paperSize];
-        rect.size.height = rect.size.height * numPages;
-        if (numPages > 1) rect.size.height += [self pageSeparatorHeight] * (numPages - 1);
+        if (NSTextLayoutOrientationHorizontal == layoutOrientation) {
+            rect.size.height = rect.size.height * numPages;
+            if (numPages > 1) rect.size.height += [self pageSeparatorHeight] * (numPages - 1);
+        } else {
+            rect.size.width = rect.size.width * numPages;
+            if (numPages > 1) rect.size.width += [self pageSeparatorHeight] * (numPages - 1);
+        }
         rect.size = [self convertSize:rect.size toView:[self superview]];
         [self setFrame:rect];
     }
@@ -115,10 +126,7 @@
 }
 
 - (NSSize)documentSizeInPage {
-    NSSize paperSize = [printInfo paperSize];
-    paperSize.width -= ([printInfo leftMargin] + [printInfo rightMargin]) - defaultTextPadding() * 2.0;
-    paperSize.height -= ([printInfo topMargin] + [printInfo bottomMargin]);
-    return paperSize;
+    return documentSizeForPrintInfo(printInfo);
 }
 
 - (NSRect)documentRectForPageNumber:(NSUInteger)pageNumber {	/* First page is page 0, of course! */
@@ -133,7 +141,12 @@
     NSRect rect;
     rect.size = [printInfo paperSize];
     rect.origin = [self frame].origin;
-    rect.origin.y += ((rect.size.height + [self pageSeparatorHeight]) * pageNumber);
+
+    if (NSTextLayoutOrientationHorizontal == layoutOrientation) {
+        rect.origin.y += ((rect.size.height + [self pageSeparatorHeight]) * pageNumber);
+    } else {
+        rect.origin.x += (NSWidth([self bounds]) - ((rect.size.width + [self pageSeparatorHeight]) * (pageNumber + 1)));
+    }
     return rect;
 }
 
@@ -161,13 +174,33 @@
     return marginColor;
 }
 
+- (void)setLayoutOrientation:(NSTextLayoutOrientation)orientation {
+    if (orientation != layoutOrientation) {
+        layoutOrientation = orientation;
+
+        [self updateFrame];
+    }
+}
+
+- (NSTextLayoutOrientation)layoutOrientation {
+    return layoutOrientation;
+}
+
 - (void)drawRect:(NSRect)rect {
     if ([[NSGraphicsContext currentContext] isDrawingToScreen]) {
         NSSize paperSize = [printInfo paperSize];
-        NSUInteger firstPage = rect.origin.y / (paperSize.height + [self pageSeparatorHeight]);
-        NSUInteger lastPage = NSMaxY(rect) / (paperSize.height + [self pageSeparatorHeight]);
+        NSUInteger firstPage;
+        NSUInteger lastPage;
         NSUInteger cnt;
-        
+
+        if (NSTextLayoutOrientationHorizontal == layoutOrientation) {
+            firstPage = NSMinY(rect) / (paperSize.height + [self pageSeparatorHeight]);
+            lastPage = NSMaxY(rect) / (paperSize.height + [self pageSeparatorHeight]);
+        } else {
+            firstPage = numPages - (NSMaxX(rect) / (paperSize.width + [self pageSeparatorHeight]));
+            lastPage = numPages - (NSMinX(rect) / (paperSize.width + [self pageSeparatorHeight]));
+        }
+
         [marginColor set];
         NSRectFill(rect);
 
@@ -183,7 +216,13 @@
             [backgroundColor set];
             for (cnt = firstPage; cnt <= lastPage; cnt++) {
 		NSRect pageRect = [self pageRectForPageNumber:cnt];
-		NSRectFill (NSMakeRect(pageRect.origin.x, NSMaxY(pageRect), pageRect.size.width, [self pageSeparatorHeight]));
+                NSRect separatorRect;
+                if (NSTextLayoutOrientationHorizontal == layoutOrientation) {
+                    separatorRect = NSMakeRect(NSMinX(pageRect), NSMaxY(pageRect), NSWidth(pageRect), [self pageSeparatorHeight]);
+                } else {
+                    separatorRect = NSMakeRect(NSMaxX(pageRect), NSMinY(pageRect), [self pageSeparatorHeight], NSHeight(pageRect));
+                }
+		NSRectFill (separatorRect);
             }
         }
     }
@@ -207,4 +246,15 @@
     return NSMakePoint((paperSize.width - rect.size.width) / 2.0, (paperSize.height - rect.size.height) / 2.0);
 }
 
+- (BOOL)showsScalePopUpButton { return YES; }
+
 @end
+
+
+NSSize documentSizeForPrintInfo(NSPrintInfo *printInfo) {
+    NSSize paperSize = [printInfo paperSize];
+    paperSize.width -= ([printInfo leftMargin] + [printInfo rightMargin]) - defaultTextPadding() * 2.0;
+    paperSize.height -= ([printInfo topMargin] + [printInfo bottomMargin]);
+    return paperSize;
+}
+

@@ -1,6 +1,7 @@
 /*
-     File: MultiplePageView.h
- Abstract: View which holds all the pages together in the multiple-page case.
+     File: PrintingTextView.h
+ Abstract: Very simple subclass of NSTextView that allows dynamic rewrapping/resizing to accomodate user options in the print panel when printing. 
+ This view is used only for printing of "wrap-to-window" views, since "wrap-to-page" views have fixed wrapping and size already.
   Version: 1.7.1
  
  Disclaimer: IMPORTANT:  This Apple software is supplied to you by Apple
@@ -46,28 +47,14 @@
  */
 
 #import <Cocoa/Cocoa.h>
+@class PrintPanelAccessoryController;
 
-@interface MultiplePageView : NSView {
-    NSPrintInfo *printInfo;
-    NSColor *lineColor;
-    NSColor *marginColor;
-    NSUInteger numPages;
-    NSTextLayoutOrientation layoutOrientation;
+@interface PrintingTextView : NSTextView {
+    PrintPanelAccessoryController *printPanelAccessoryController;	// Accessory controller which manages user's printing choices
+    NSSize originalSize;			// The original size of the text view in the window (used for non-rewrapped printing)
+    NSSize previousValueOfDocumentSizeInPage;	// As user fiddles with the print panel settings, stores the last document size for which the text was relaid out
+    BOOL previousValueOfWrappingToFit;		// Stores the last setting of whether to rewrap to fit page or not
 }
-
-- (void)setPrintInfo:(NSPrintInfo *)anObject;
-- (NSPrintInfo *)printInfo;
-- (CGFloat)pageSeparatorHeight;
-- (NSSize)documentSizeInPage;	/* Returns the area where the document can draw */
-- (NSRect)documentRectForPageNumber:(NSUInteger)pageNumber;	/* First page is page 0 */
-- (NSRect)pageRectForPageNumber:(NSUInteger)pageNumber;	/* First page is page 0 */
-- (void)setNumberOfPages:(NSUInteger)num;
-- (NSUInteger)numberOfPages;
-- (void)setLineColor:(NSColor *)color;
-- (NSColor *)lineColor;
-- (void)setMarginColor:(NSColor *)color;
-- (NSColor *)marginColor;
-- (void)setLayoutOrientation:(NSTextLayoutOrientation)orientation;
-- (NSTextLayoutOrientation)layoutOrientation;
-
+@property (assign) PrintPanelAccessoryController *printPanelAccessoryController;
+@property (assign) NSSize originalSize;
 @end
